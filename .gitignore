@@ -1,0 +1,29 @@
+target/
+*.class
+*.jar
+*.war
+
+# Maven
+.mvn/timing.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.classpath
+*.project
+*.settings/
+
+# Spring Boot
+*.log
+application-local.yml
+application-local.properties
+
+# Secrets
+.env.local
+*.p12
+*.jks
+
+# OS
+.DS_Store
+Thumbs.db
