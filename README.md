@@ -1,94 +1,217 @@
 # Powerbank Sharing Platform
 
-A microservices-based powerbank sharing system built with Spring Boot 3, gRPC, Kafka, PostgreSQL, Keycloak, and Kong.
+## Overview
+MVP of a powerbank sharing system built with microservices architecture.
+Users can rent powerbanks from stations, pay automatically, and return them.
 
-## Modules
+## Architecture
 
-| Module | Description | Port |
-|---|---|---|
-| `user-service` | User registration, profiles, auth integration | 8081 |
-| `station-service` | Station inventory and powerbank slot management | 8082 |
-| `rental-service` | Rental lifecycle orchestration | 8083 |
-| `payment-service` | Billing and payment processing | 8084 |
-| `proto` | Shared Protobuf/gRPC definitions | — |
-| `common` | Shared DTOs, exceptions, utilities | — |
+### Services
+| Service | Description | REST Port | gRPC Port |
+|---------|-------------|-----------|-----------|
+| user-service | Authentication via Keycloak + OTP | 8081 | 9091 |
+| station-service | Station & powerbank management | — | 9092 |
+| rental-service | Rental lifecycle (FSM) | 8083 | 9093 |
+| payment-service | Card & payment processing | 8084 | — |
+
+### Communication
+- **REST**: Frontend → Kong API Gateway → Services
+- **gRPC**: rental-service ↔ user-service, rental-service ↔ station-service
+- **Kafka**: rental-service ↔ station-service, rental-service ↔ payment-service
+
+### Tech Stack
+- Java 21, Spring Boot 3.2.5
+- PostgreSQL 16 (separate DB per service)
+- Apache Kafka 3.6
+- Keycloak 23.0 (OAuth2 + JWT)
+- Kong 3.7 (API Gateway, DB-less mode)
+- gRPC + Protocol Buffers
+- Liquibase (DB migrations)
+- Docker + Docker Compose
+
+## Rental Flow (FSM)
+
+```
+WAITING → LOCKING_STATION → PROCESSING_PAYMENT → EJECTING_POWERBANK → IN_THE_LEASE → FINISHING → DONE
+                                                                                            ↘ FAILED (any step)
+```
+
+| Step | Trigger | Action |
+|------|---------|--------|
+| WAITING → LOCKING_STATION | POST /api/v1/rentals | Publish acquire-cabinet-lock-event |
+| LOCKING_STATION → PROCESSING_PAYMENT | Lock result (Kafka) | Publish payment-request |
+| PROCESSING_PAYMENT → EJECTING_POWERBANK | Payment result (Kafka) | Publish eject-powerbank-event |
+| EJECTING_POWERBANK → IN_THE_LEASE | Eject result (Kafka) | Set powerBankId, startedAt |
+| IN_THE_LEASE → FINISHING → DONE | POST /api/v1/rentals/finish | Calculate amount (100 UZS/min, min 5000 UZS) |
+
+## Kafka Topics
+| Topic | Producer | Consumer |
+|-------|----------|----------|
+| acquire-cabinet-lock-event | rental-service | station-service |
+| acquire-cabinet-lock-result | station-service | rental-service |
+| payment-request | rental-service | payment-service |
+| payment-result | payment-service | rental-service |
+| eject-powerbank-event | rental-service | station-service |
+| eject-powerbank-result | station-service | rental-service |
+| payment-events | payment-service | — |
 
 ## Prerequisites
-
-- Java 17+
+- Java 21+
 - Maven 3.9+
 - Docker & Docker Compose
 
 ## Quick Start
 
-### 1. Start infrastructure
-
+### 1. Clone the repository
 ```bash
-cp .env .env.local        # optional: override credentials locally
-docker compose up -d
+git clone https://github.com/yusufjon-akhmedov/powerbank-sharing.git
+cd powerbank-sharing
 ```
 
-Wait for all services to be healthy:
-
+### 2. Create .env file
 ```bash
-docker compose ps
+cp .env.example .env
 ```
 
-### 2. Verify infrastructure
+### 3. Start infrastructure
+```bash
+docker-compose up -d
+```
 
-| Service | URL |
-|---|---|
-| Keycloak admin console | http://localhost:8080 |
-| Kong proxy | http://localhost:8000 |
-| Kong admin API | http://localhost:8001 |
-| PostgreSQL | localhost:5432 |
-| Kafka | localhost:29092 |
+Wait for all containers to be healthy:
+```bash
+docker-compose ps
+```
 
-### 3. Build all modules
+### 4. Fix Keycloak database permissions
+```bash
+docker exec postgres psql -U postgres -c "CREATE USER keycloak WITH PASSWORD 'keycloak';"
+docker exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE keycloak_db TO keycloak;"
+docker exec postgres psql -U postgres -d keycloak_db -c "GRANT ALL ON SCHEMA public TO keycloak;"
+docker exec postgres psql -U postgres -d keycloak_db -c "ALTER DATABASE keycloak_db OWNER TO keycloak;"
+docker restart keycloak
+```
 
+### 5. Setup Keycloak realm
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin&grant_type=password&client_id=admin-cli" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -s -X POST http://localhost:8080/admin/realms \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"realm":"powerbank-realm","enabled":true}'
+
+curl -s -X POST http://localhost:8080/admin/realms/powerbank-realm/clients \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"powerbank-app","enabled":true,"publicClient":true,"directAccessGrantsEnabled":true,"redirectUris":["*"]}'
+```
+
+### 6. Build all modules
 ```bash
 mvn clean install -DskipTests
 ```
 
-### 4. Run a service
-
+### 7. Run services (each in separate terminal)
 ```bash
-cd user-service
-mvn spring-boot:run
+cd user-service && mvn spring-boot:run
+cd station-service && mvn spring-boot:run
+cd rental-service && mvn spring-boot:run
+cd payment-service && mvn spring-boot:run
 ```
 
-Or run the fat JAR:
+## API Documentation (Swagger)
+- user-service: http://localhost:8081/swagger-ui/index.html
+- rental-service: http://localhost:8083/swagger-ui/index.html
 
+## API Usage
+
+### 1. Request OTP
 ```bash
-java -jar user-service/target/user-service-1.0.0-SNAPSHOT.jar
+curl -X POST http://localhost:8081/auth/phone \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "+998901234567"}'
+```
+Check server logs for OTP (development mode).
+
+### 2. Verify OTP and get JWT
+```bash
+curl -X POST http://localhost:8081/auth/verify \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "+998901234567", "otp": "123456"}'
 ```
 
-## Development
-
-### Build single module
-
+### 3. Create rental
 ```bash
-mvn -pl user-service -am clean package
+curl -X POST http://localhost:8083/api/v1/rentals \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"stationId": "<station-uuid>", "cardId": "<card-uuid>", "idempotencyKey": "unique-key-001"}'
 ```
 
-### Run tests
-
+### 4. Check rental status
 ```bash
-mvn test
+curl http://localhost:8083/api/v1/rentals/<rental-id>/status \
+  -H "Authorization: Bearer <access_token>"
 ```
 
-### Regenerate Protobuf sources
-
+### 5. Finish rental
 ```bash
-mvn -pl proto generate-sources
+curl -X POST http://localhost:8083/api/v1/rentals/finish \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"rentalId": "<rental-id>", "stationId": "<station-uuid>"}'
 ```
 
-## Infrastructure teardown
+## Test Data
+After startup, test data is auto-seeded:
 
+**Stations** (Tashkent):
+- Amir Temur Maydoni
+- Yunusabad Metro
+- Chilanzar DC
+
+**Cards**:
+- test-user-1: 500,000 UZS balance
+- test-user-2: 100 UZS balance (for insufficient funds test)
+
+Get IDs:
 ```bash
-docker compose down -v   # -v removes volumes (wipes databases)
+docker exec postgres psql -U postgres -d stations_db -c "SELECT id, name FROM stations;"
+docker exec postgres psql -U postgres -d payments_db -c "SELECT id, user_id, balance FROM cards;"
 ```
 
-## Environment variables
+## Infrastructure URLs
+| Service | URL |
+|---------|-----|
+| Keycloak Admin | http://localhost:8080 |
+| Kong Proxy | http://localhost:8000 |
+| Kong Admin | http://localhost:8001 |
+| PostgreSQL | localhost:5432 |
+| Kafka | localhost:29092 |
 
-See [.env](.env) for all configurable values. Never commit secrets — override in `.env.local` or your CI secrets store.
+## Project Structure
+
+```
+powerbank-sharing/
+├── proto/                    # Shared gRPC protobuf definitions
+├── common/                   # Shared utilities
+├── user-service/             # Auth, OTP, Keycloak
+├── station-service/          # Stations, PowerBanks, slot management
+├── rental-service/           # Rental FSM orchestrator
+├── payment-service/          # Cards, payments, idempotency
+├── infra/
+│   ├── kong/kong.yml         # Kong declarative config
+│   └── postgres/             # Multi-DB init script
+├── docker-compose.yml
+├── .env.example
+└── DECISIONS.md              # Architecture decision records
+```
+
+## Notes
+- OTP is logged to console in development mode (Telegram integration planned)
+- Station geo-radius filtering returns all ACTIVE stations (PostGIS planned)
+- Outbox pattern not implemented (noted in DECISIONS.md)
