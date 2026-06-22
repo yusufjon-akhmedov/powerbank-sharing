@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="001" author="powerbank">
+        <createTable tableName="rentals">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="station_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="card_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="power_bank_id" type="VARCHAR(100)"/>
+            <column name="slot_id" type="VARCHAR(100)"/>
+            <column name="status" type="VARCHAR(30)" defaultValue="WAITING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="idempotency_key" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="started_at" type="TIMESTAMPTZ"/>
+            <column name="finished_at" type="TIMESTAMPTZ"/>
+            <column name="total_amount" type="NUMERIC(19,2)"/>
+            <column name="failure_reason" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMPTZ"/>
+            <column name="updated_at" type="TIMESTAMPTZ"/>
+        </createTable>
+
+        <!-- Idempotency guard -->
+        <createIndex tableName="rentals" indexName="idx_rentals_idempotency_key" unique="true">
+            <column name="idempotency_key"/>
+        </createIndex>
+
+        <!-- History queries ordered by most recent first -->
+        <createIndex tableName="rentals" indexName="idx_rentals_user_created">
+            <column name="user_id"/>
+            <column name="created_at" descending="true"/>
+        </createIndex>
+
+        <!-- Ops/monitoring: find all rentals in a given state -->
+        <createIndex tableName="rentals" indexName="idx_rentals_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
