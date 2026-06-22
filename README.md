@@ -6,6 +6,8 @@ Users can rent powerbanks from stations, pay automatically, and return them.
 
 ## Architecture
 
+![Architecture Diagram](docs/architecture.png)
+
 ### Services
 | Service | Description | REST Port | gRPC Port |
 |---------|-------------|-----------|-----------|
