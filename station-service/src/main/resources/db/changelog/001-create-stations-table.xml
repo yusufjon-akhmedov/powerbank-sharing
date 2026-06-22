@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="001" author="powerbank">
+        <createTable tableName="stations">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="address" type="VARCHAR(255)"/>
+            <column name="latitude" type="DECIMAL(9,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="longitude" type="DECIMAL(9,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_slots" type="INT" defaultValueNumeric="10">
+                <constraints nullable="false"/>
+            </column>
+            <column name="available_slots" type="INT" defaultValueNumeric="10">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ"/>
+            <column name="updated_at" type="TIMESTAMPTZ"/>
+        </createTable>
+
+        <!--
+            Composite index on (latitude, longitude) supports bounding-box pre-filter
+            for geo queries. When PostGIS is added, this will be replaced by a GIST index.
+        -->
+        <createIndex tableName="stations" indexName="idx_stations_lat_lng">
+            <column name="latitude"/>
+            <column name="longitude"/>
+        </createIndex>
+
+        <!-- Status index: filters for ACTIVE stations are the hot path in getNearbyStations -->
+        <createIndex tableName="stations" indexName="idx_stations_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

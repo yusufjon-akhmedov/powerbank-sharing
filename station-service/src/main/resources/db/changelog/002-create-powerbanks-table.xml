@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="002" author="powerbank">
+        <createTable tableName="powerbanks">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="station_id" type="UUID">
+                <constraints nullable="false"
+                             foreignKeyName="fk_powerbanks_station_id"
+                             references="stations(id)"/>
+            </column>
+            <column name="slot_number" type="INT"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="AVAILABLE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="battery_level" type="INT" defaultValueNumeric="100"/>
+            <column name="created_at" type="TIMESTAMPTZ"/>
+            <column name="updated_at" type="TIMESTAMPTZ"/>
+        </createTable>
+
+        <!--
+            Composite index on (station_id, status) makes findFirstByStationIdAndStatus
+            a single index-range scan instead of a full table scan. Critical for lockSlot
+            which runs on every rental creation.
+        -->
+        <createIndex tableName="powerbanks" indexName="idx_powerbanks_station_status">
+            <column name="station_id"/>
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
