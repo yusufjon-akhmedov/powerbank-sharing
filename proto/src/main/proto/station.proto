@@ -1,0 +1,34 @@
+syntax = "proto3";
+package station;
+option java_package = "com.powerbank.proto.station";
+option java_multiple_files = true;
+
+service StationService {
+  rpc GetStation (GetStationRequest) returns (GetStationResponse);
+  rpc GetNearbyStations (GetNearbyStationsRequest) returns (GetNearbyStationsResponse);
+  rpc LockSlot (LockSlotRequest) returns (LockSlotResponse);
+  rpc EjectPowerBank (EjectPowerBankRequest) returns (EjectPowerBankResponse);
+  rpc ReturnPowerBank (ReturnPowerBankRequest) returns (ReturnPowerBankResponse);
+}
+
+message GetStationRequest { string stationId = 1; }
+message GetStationResponse {
+  string stationId = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+  int32 availableSlots = 5;
+  string status = 6;
+}
+message GetNearbyStationsRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double radiusKm = 3;
+}
+message GetNearbyStationsResponse { repeated GetStationResponse stations = 1; }
+message LockSlotRequest { string stationId = 1; string rentalId = 2; }
+message LockSlotResponse { bool success = 1; string slotId = 2; string message = 3; }
+message EjectPowerBankRequest { string stationId = 1; string slotId = 2; string rentalId = 3; }
+message EjectPowerBankResponse { bool success = 1; string powerBankId = 2; string message = 3; }
+message ReturnPowerBankRequest { string stationId = 1; string powerBankId = 2; string rentalId = 3; }
+message ReturnPowerBankResponse { bool success = 1; string slotId = 2; string message = 3; }

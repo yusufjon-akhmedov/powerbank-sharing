@@ -1,0 +1,23 @@
+syntax = "proto3";
+package payment;
+option java_package = "com.powerbank.proto.payment";
+option java_multiple_files = true;
+
+// Payment communicates via Kafka only — this proto is for internal event types
+message PaymentRequest {
+  string paymentId = 1;
+  string rentalId = 2;
+  string cardId = 3;
+  string userId = 4;
+  string amount = 5;
+  string idempotencyKey = 6;
+  string type = 7; // INITIAL, RECURRING, REFUND
+}
+message PaymentResult {
+  string paymentId = 1;
+  string rentalId = 2;
+  string status = 3; // SUCCESS, FAILED, INSUFFICIENT_FUNDS
+  string amount = 4;
+  string processedAt = 5;
+  string failureReason = 6;
+}

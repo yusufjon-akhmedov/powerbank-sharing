@@ -1,0 +1,31 @@
+syntax = "proto3";
+package rental;
+option java_package = "com.powerbank.proto.rental";
+option java_multiple_files = true;
+
+service RentalService {
+  rpc CreateRental (CreateRentalRequest) returns (CreateRentalResponse);
+  rpc GetRentalStatus (GetRentalStatusRequest) returns (GetRentalStatusResponse);
+  rpc GetRentalHistory (GetRentalHistoryRequest) returns (GetRentalHistoryResponse);
+  rpc FinishRental (FinishRentalRequest) returns (FinishRentalResponse);
+}
+
+message CreateRentalRequest {
+  string userId = 1;
+  string stationId = 2;
+  string cardId = 3;
+  string idempotencyKey = 4;
+}
+message CreateRentalResponse { string rentalId = 1; string status = 2; }
+message GetRentalStatusRequest { string rentalId = 1; string userId = 2; }
+message GetRentalStatusResponse {
+  string rentalId = 1;
+  string status = 2;
+  string powerBankId = 3;
+  string slotId = 4;
+  string startedAt = 5;
+}
+message GetRentalHistoryRequest { string userId = 1; int32 page = 2; int32 size = 3; }
+message GetRentalHistoryResponse { repeated GetRentalStatusResponse rentals = 1; }
+message FinishRentalRequest { string rentalId = 1; string userId = 2; string stationId = 3; }
+message FinishRentalResponse { bool success = 1; string message = 2; double totalAmount = 3; }
