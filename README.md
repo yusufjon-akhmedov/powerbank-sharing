@@ -6,7 +6,52 @@ Users can rent powerbanks from stations, pay automatically, and return them.
 
 ## Architecture
 
-![Architecture Diagram](docs/architecture.png)
+```mermaid
+flowchart TD
+    Client(["🖥️  Frontend / Client"])
+
+    subgraph gw["  API Layer  "]
+        Kong["Kong API Gateway\nToken introspection · DB-less · port 8000"]
+        Keycloak["Keycloak\nport 8080"]
+    end
+
+    subgraph svc["  Microservices  "]
+        direction LR
+        US["user-service\nREST · gRPC server\nport 8081 · gRPC 9091"]
+        RS["rental-service\nREST · gRPC · FSM\nport 8083 · gRPC 9093"]
+        SS["station-service\ngRPC only · Kafka\ngRPC 9092"]
+        PS["payment-service\nKafka only\nport 8084"]
+    end
+
+    subgraph dbs["  Databases — PostgreSQL  "]
+        direction LR
+        UDB[("users_db\nusers · phone · status\ncreated_at TIMESTAMPTZ")]
+        RDB[("rentals_db\nrentals · FSM status\nidempotency_key UNIQUE")]
+        SDB[("stations_db\nstations · powerbanks\navailable_slots · status")]
+        PDB[("payments_db\ncards · payments\nbalance NUMERIC · type")]
+    end
+
+    Kafka[["Apache Kafka  —  port 29092\nacquire-cabinet-lock-event / result\neject-powerbank-event / result\npayment-request / payment-result / payment-events"]]
+
+    Client -->|REST| Kong
+    Kong -. introspect .-> Keycloak
+    Kong --> US
+    Kong --> RS
+    Kong -->|gRPC transcoding| SS
+
+    RS <-->|gRPC| US
+    RS <-->|gRPC| SS
+
+    US --> UDB
+    RS --> RDB
+    SS --> SDB
+    PS --> PDB
+
+    RS -->|"acquire-lock-event\npayment-request\neject-event"| Kafka
+    Kafka -->|"lock-result\npayment-result\neject-result"| RS
+    SS <-->|"lock-result\neject-result"| Kafka
+    PS <-->|"payment-result\npayment-events"| Kafka
+```
 
 ### Services
 | Service | Description | REST Port | gRPC Port |
