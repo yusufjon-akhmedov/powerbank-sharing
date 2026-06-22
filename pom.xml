@@ -34,7 +34,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- dependency versions -->
-        <grpc-spring-boot-starter.version>3.1.0</grpc-spring-boot-starter.version>
+        <grpc-spring-boot-starter.version>3.1.0.RELEASE</grpc-spring-boot-starter.version>
         <protobuf.version>3.25.3</protobuf.version>
         <grpc.version>1.63.0</grpc.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>

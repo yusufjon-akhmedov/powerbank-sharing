@@ -27,6 +27,12 @@
             <groupId>io.grpc</groupId>
             <artifactId>grpc-protobuf</artifactId>
         </dependency>
+        <!-- grpc-protoc generates @javax.annotation.Generated; removed from JDK 11+ -->
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>1.3.2</version>
+        </dependency>
     </dependencies>
 
     <build>
