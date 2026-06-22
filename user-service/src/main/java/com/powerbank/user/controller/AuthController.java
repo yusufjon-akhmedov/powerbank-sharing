@@ -1,5 +1,6 @@
 package com.powerbank.user.controller;
 
+import com.powerbank.user.dto.OtpResponse;
 import com.powerbank.user.dto.PhoneRequest;
 import com.powerbank.user.dto.TokenResponse;
 import com.powerbank.user.dto.VerifyRequest;
@@ -24,9 +25,9 @@ public class AuthController {
     private final UserRepository userRepository;
 
     @PostMapping("/auth/phone")
-    public ResponseEntity<Void> sendOtp(@RequestBody PhoneRequest request) {
+    public ResponseEntity<OtpResponse> sendOtp(@RequestBody PhoneRequest request) {
         authService.sendOtp(request.getPhone());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new OtpResponse("OTP sent successfully", request.getPhone()));
     }
 
     @PostMapping("/auth/verify")
