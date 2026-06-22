@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="002" author="powerbank">
+        <createTable tableName="payments">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="rental_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="card_id" type="UUID">
+                <constraints foreignKeyName="fk_payments_card_id" references="cards(id)"/>
+            </column>
+            <column name="user_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="NUMERIC(19,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency" type="VARCHAR(3)" defaultValue="UZS"/>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="idempotency_key" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="failure_reason" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMPTZ"/>
+            <column name="processed_at" type="TIMESTAMPTZ"/>
+        </createTable>
+
+        <!-- Primary idempotency guard — must be unique -->
+        <createIndex tableName="payments" indexName="idx_payments_idempotency_key" unique="true">
+            <column name="idempotency_key"/>
+        </createIndex>
+
+        <!-- All payments for a rental (e.g. initial + recurring charges) -->
+        <createIndex tableName="payments" indexName="idx_payments_rental_id">
+            <column name="rental_id"/>
+        </createIndex>
+
+        <!-- User payment history ordered by most recent first -->
+        <createIndex tableName="payments" indexName="idx_payments_user_created">
+            <column name="user_id"/>
+            <column name="created_at" descending="true"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
