@@ -159,7 +159,20 @@ curl -X POST http://localhost:8081/auth/phone \
 curl -X POST http://localhost:8081/auth/verify \
   -H "Content-Type: application/json" \
   -d '{"phone": "+998901234567", "otp": "123456"}'
+```
 
+First, get station and card IDs from the database:
+```bash
+docker exec postgres psql -U postgres -d stations_db \
+  -c "SELECT id, name FROM stations;"
+
+docker exec postgres psql -U postgres -d payments_db \
+  -c "SELECT id, user_id, balance FROM cards;"
+```
+Use the IDs from the output in the request body below.
+Note: change `idempotencyKey` value for each new rental.
+
+```bash
 # Create rental
 curl -X POST http://localhost:8083/api/v1/rentals \
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
