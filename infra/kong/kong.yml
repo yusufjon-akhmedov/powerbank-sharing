@@ -1,6 +1,26 @@
 _format_version: "3.0"
 _transform: true
 
+consumers:
+  - username: keycloak-users
+    id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+jwt_secrets:
+  - id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+    consumer: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    key: http://localhost:8080/realms/powerbank-realm
+    algorithm: RS256
+    rsa_public_key: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs02kz/W/COTV3StnZYhA
+      u4ipkUe603H7fo6uQXck24vc3lySln4vCLLA5pENe5kb6R+5cgokBSTfQVm2zHuc
+      ezt6h7MPf0XX1XGuFXfieaE3TLixpGMvOI+653G/0XaV4hNSroJ/UNZ/FxH52Pw
+      t/7IsVltoPe9rNNlBKAy7Bv5dGP33ZWUOnSwWR2Cb4wah1wRwD1Q+zmxkq5/5hK
+      L07Hjk3JFUTCqCnK8Hx6g2KI5LHU+svnKRpYb12zU+kTxezvN8rIPKj2phyKXP
+      YjOhVkQ6rbce7xMlpLeIEqpO2ESkBsZtZMpBMTegjWP1j4XyR371IhhGIn29WuM
+      QNwli1wIDAQAB
+      -----END PUBLIC KEY-----
+
 services:
   - name: user-service
     url: http://host.docker.internal:8081
@@ -32,6 +52,12 @@ services:
         methods:
           - GET
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
 
   - name: rental-service
     url: http://host.docker.internal:8083
@@ -42,6 +68,12 @@ services:
         methods:
           - POST
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
 
       - name: rental-status
         paths:
@@ -49,6 +81,12 @@ services:
         methods:
           - GET
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
 
       - name: rental-history
         paths:
@@ -56,6 +94,12 @@ services:
         methods:
           - GET
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
 
       - name: rental-finish
         paths:
@@ -63,3 +107,9 @@ services:
         methods:
           - POST
         strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify:
+                - exp
