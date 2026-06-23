@@ -17,9 +17,10 @@ gRPC · Keycloak 23 · Kong 3.7 · Liquibase · Docker
 | payment-service | Cards + Payments | — | — |
 
 ## Communication
-- **REST** → Frontend → Kong → Services
+- **REST**: Frontend → Kong (port 8000) → Services
 - **gRPC**: rental-service ↔ user-service (internal)
-- **Kafka** → rental ↔ station, rental ↔ payment (async)
+- **Kafka**: rental-service ↔ station-service, rental-service ↔ payment-service
+- **JWT**: Kong verifies Keycloak RS256 token on protected routes
 
 ## Rental Flow (FSM)
 
@@ -66,7 +67,7 @@ flowchart TD
     Kafka[["Apache Kafka — port 29092"]]
 
     Client -->|REST| Kong
-    Kong -. introspect .-> Keycloak
+    Kong -. JWT verify .-> Keycloak
     Kong --> US & RS & SS
 
     RS <-->|gRPC| US
@@ -149,19 +150,23 @@ cd payment-service && mvn spring-boot:run
 
 ## API
 
+### 1. Request OTP
 ```bash
-# Request OTP (check server logs for code)
-curl -X POST http://localhost:8081/auth/phone \
+curl -X POST http://localhost:8000/auth/phone \
   -H "Content-Type: application/json" \
   -d '{"phone": "+998901234567"}'
+```
+> Check server logs for OTP (development mode)
 
-# Verify OTP → get JWT
-curl -X POST http://localhost:8081/auth/verify \
+### 2. Verify OTP and get JWT
+```bash
+curl -X POST http://localhost:8000/auth/verify \
   -H "Content-Type: application/json" \
   -d '{"phone": "+998901234567", "otp": "123456"}'
 ```
 
-First, get station and card IDs from the database:
+### 3. Create rental
+> First get station and card IDs:
 ```bash
 docker exec postgres psql -U postgres -d stations_db \
   -c "SELECT id, name FROM stations;"
@@ -169,23 +174,34 @@ docker exec postgres psql -U postgres -d stations_db \
 docker exec postgres psql -U postgres -d payments_db \
   -c "SELECT id, user_id, balance FROM cards;"
 ```
-Use the IDs from the output in the request body below.
-Note: change `idempotencyKey` value for each new rental.
+> Use IDs from output below. Change `idempotencyKey` for each new rental.
 
 ```bash
-# Create rental
-curl -X POST http://localhost:8083/api/v1/rentals \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"stationId":"<uuid>","cardId":"<uuid>","idempotencyKey":"key-001"}'
+curl -X POST http://localhost:8000/api/v1/rentals \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stationId": "<station-uuid>",
+    "cardId": "<card-uuid>",
+    "idempotencyKey": "unique-key-001"
+  }'
+```
 
-# Check status
-curl http://localhost:8083/api/v1/rentals/<id>/status \
-  -H "Authorization: Bearer <token>"
+### 4. Check rental status
+```bash
+curl http://localhost:8000/api/v1/rentals/<rental-id>/status \
+  -H "Authorization: Bearer <access_token>"
+```
 
-# Finish rental
-curl -X POST http://localhost:8083/api/v1/rentals/finish \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"rentalId":"<uuid>","stationId":"<uuid>"}'
+### 5. Finish rental
+```bash
+curl -X POST http://localhost:8000/api/v1/rentals/finish \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rentalId": "<rental-id>",
+    "stationId": "<station-uuid>"
+  }'
 ```
 
 Swagger UI: `http://localhost:8081/swagger-ui/index.html` (user) · `http://localhost:8083/swagger-ui/index.html` (rental)
@@ -215,3 +231,4 @@ docker exec postgres psql -U postgres -d payments_db -c "SELECT id, user_id, bal
 - OTP logged to console in dev mode (Telegram planned)
 - `getNearbyStations` returns all ACTIVE stations (PostGIS planned)
 - Outbox pattern not implemented → see [DECISIONS.md](DECISIONS.md)
+- Kong JWT plugin verifies Keycloak RS256 tokens on protected routes
