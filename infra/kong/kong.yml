@@ -1,34 +1,65 @@
 _format_version: "3.0"
 _transform: true
 
-# Kong DB-less declarative configuration
-# Add services and routes here as microservices are implemented.
-
 services:
   - name: user-service
     url: http://host.docker.internal:8081
     routes:
-      - name: user-routes
+      - name: auth-phone
         paths:
-          - /api/users
+          - /auth/phone
+        methods:
+          - POST
+        strip_path: false
 
-  - name: station-service
-    url: http://host.docker.internal:8082
-    routes:
-      - name: station-routes
+      - name: auth-verify
         paths:
-          - /api/stations
+          - /auth/verify
+        methods:
+          - POST
+        strip_path: false
+
+      - name: auth-refresh
+        paths:
+          - /v1/auth/refresh
+        methods:
+          - POST
+        strip_path: false
+
+      - name: user-me
+        paths:
+          - /v1/me
+        methods:
+          - GET
+        strip_path: false
 
   - name: rental-service
     url: http://host.docker.internal:8083
     routes:
-      - name: rental-routes
+      - name: rental-create
         paths:
-          - /api/rentals
+          - /api/v1/rentals
+        methods:
+          - POST
+        strip_path: false
 
-  - name: payment-service
-    url: http://host.docker.internal:8084
-    routes:
-      - name: payment-routes
+      - name: rental-status
         paths:
-          - /api/payments
+          - ~/api/v1/rentals/[^/]+/status
+        methods:
+          - GET
+        strip_path: false
+
+      - name: rental-history
+        paths:
+          - /api/v1/rentals/history
+        methods:
+          - GET
+        strip_path: false
+
+      - name: rental-finish
+        paths:
+          - /api/v1/rentals/finish
+        methods:
+          - POST
+        strip_path: false
