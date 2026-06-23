@@ -18,7 +18,7 @@ gRPC · Keycloak 23 · Kong 3.7 · Liquibase · Docker
 
 ## Communication
 - **REST** → Frontend → Kong → Services
-- **gRPC** → rental ↔ user, rental ↔ station (internal)
+- **gRPC**: rental-service ↔ user-service (internal)
 - **Kafka** → rental ↔ station, rental ↔ payment (async)
 
 ## Rental Flow (FSM)
@@ -107,7 +107,15 @@ cp .env.example .env
 
 # 3. Start infrastructure
 docker-compose up -d
+```
 
+> **Note (macOS only):** If PostgreSQL is already running locally
+> on port 5432, stop it first:
+> ```bash
+> brew services stop postgresql@18
+> ```
+
+```bash
 # 4. Fix Keycloak DB permissions
 docker exec postgres psql -U postgres -c "CREATE USER keycloak WITH PASSWORD 'keycloak';"
 docker exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE keycloak_db TO keycloak;"
@@ -117,6 +125,7 @@ docker restart keycloak
 
 # 5. Create Keycloak realm
 TOKEN=$(curl -s -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin&password=admin&grant_type=password&client_id=admin-cli" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
