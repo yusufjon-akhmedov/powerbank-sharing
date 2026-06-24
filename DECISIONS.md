@@ -169,6 +169,9 @@ OTP response body da qaytarilmaydi — security best practice.
 - Rate limiting: Kong da har user uchun limit.
 - Circuit breaker: Servislar orasida Resilience4j.
 - Docker Compose da barcha servislar birgalikda run.
+- - Payment cancellation: rental ni bekor qilish,
+    kartaga pul qaytarish (refund Kafka event).
+- decK orqali Kong config deploy pipeline ga qo'shish.
 
 ---
 
