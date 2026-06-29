@@ -1,4 +1,32 @@
-# Powerbank Sharing Platform
+# ⚡ Powerbank Sharing Platform
+
+> A production-grade microservices backend simulating a city-wide
+> powerbank rental network — users borrow a powerbank from any
+> station and return it to another.
+
+Built to demonstrate real-world distributed system design:
+event-driven Saga orchestration, Finite State Machine,
+idempotent payments, and OAuth2 authentication —
+all wired together with industry-standard tooling.
+
+## Highlights
+
+- **Saga Pattern + FSM** — 7-stage rental lifecycle
+  (WAITING → LOCKING → PAYMENT → EJECTING → IN_LEASE → DONE)
+  orchestrated via Kafka events and a Finite State Machine
+  with validated transitions
+- **Idempotent Payments** — duplicate Kafka messages and
+  network retries handled safely via idempotency keys
+  with DB-level UNIQUE constraints
+- **Dual Communication** — REST for external clients via
+  Kong, gRPC for internal service-to-service calls,
+  Kafka for async event-driven flow
+- **OAuth2 + OTP Auth** — phone-based login via Keycloak,
+  JWT token introspection, Resource Owner Password Grant
+- **Database-per-Service** — 4 isolated PostgreSQL databases,
+  schema migrations via Liquibase changesets
+- **DB-less API Gateway** — Kong declarative YAML config,
+  no database dependency for routing layer
 
 MVP of a powerbank sharing system — microservices with
 Spring Boot, Kafka, gRPC, Keycloak, and Kong.
@@ -39,50 +67,7 @@ WAITING → LOCKING_STATION → PROCESSING_PAYMENT → EJECTING_POWERBANK → IN
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    Client(["🖥️ Frontend / Client"])
-
-    subgraph gw["API Layer"]
-        Kong["Kong API Gateway\nDB-less · port 8000"]
-        Keycloak["Keycloak\nport 8080"]
-    end
-
-    subgraph svc["Microservices"]
-        direction LR
-        US["user-service\nREST :8081 · gRPC :9091"]
-        RS["rental-service\nREST :8083 · gRPC :9093\nFSM Orchestrator"]
-        SS["station-service\ngRPC :9092 · Kafka"]
-        PS["payment-service\nKafka · :8084"]
-    end
-
-    subgraph dbs["PostgreSQL (one DB per service)"]
-        direction LR
-        UDB[("users_db")]
-        RDB[("rentals_db")]
-        SDB[("stations_db")]
-        PDB[("payments_db")]
-    end
-
-    Kafka[["Apache Kafka — port 29092"]]
-
-    Client -->|REST| Kong
-    Kong -. JWT verify .-> Keycloak
-    Kong --> US & RS & SS
-
-    RS <-->|gRPC| US
-    RS <-->|gRPC| SS
-
-    US --> UDB
-    RS --> RDB
-    SS --> SDB
-    PS --> PDB
-
-    RS -->|lock-event · payment-request · eject-event| Kafka
-    Kafka -->|lock-result · payment-result · eject-result| RS
-    SS <-->|lock/eject events| Kafka
-    PS <-->|payment events| Kafka
-```
+![Architecture Diagram](docs/architecture.png)
 
 ## Kafka Topics
 
